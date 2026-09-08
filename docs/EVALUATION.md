@@ -4,6 +4,8 @@ The first course evaluates one narrow function family: TypeScript tags normaliza
 
 ## Four conditions
 
+Course `maintainer-inputs@1.1` supplies **the same complete acceptance specification to every arm**, including trimming, lowercase normalization, blank removal, stable deduplication, and TypeError on invalid containers/elements. The no-material arm is not deprived of requirements. Teaching material contains procedural methods only. Diagnostic, practice and exam prompts embed this common specification; exam requests differ only by their separately labeled optional learned method. Request-capture tests exercise the real HTTP adapter path to enforce this separation (with a controlled evaluator, not an efficacy measurement).
+
 1. **none**: student receives the task without teacher materials.
 2. **docs**: the same student also receives public teacher materials.
 3. **static**: a teacher creates one reusable guidance artifact without seeing the student's diagnostic result.

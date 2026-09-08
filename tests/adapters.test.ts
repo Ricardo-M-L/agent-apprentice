@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import {
   complete,
+  boundedJson,
   sourceOnly,
   validateEndpoint,
 } from "../packages/adapters/index";
@@ -20,6 +21,22 @@ afterEach(() => {
   delete process.env.APPRENTICE_TEST_KEY;
 });
 describe("real protocol adapters", () => {
+  it("preserves Chinese and emoji across single-byte network chunks", async () => {
+    const text = "老师教学生：先验证，再处理。🎓";
+    const bytes = new TextEncoder().encode(JSON.stringify({ text }));
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const byte of bytes) controller.enqueue(Uint8Array.of(byte));
+        controller.close();
+      },
+    });
+    expect(await boundedJson(new Response(stream))).toEqual({ text });
+  });
+  it("enforces response limits in UTF-8 bytes rather than characters", async () => {
+    await expect(
+      boundedJson(new Response(JSON.stringify({ text: "中".repeat(400000) }))),
+    ).rejects.toThrow(/1 MB/);
+  });
   it("maps Chat Completions and reported usage without inventing pricing", async () => {
     process.env.APPRENTICE_TEST_KEY = "test-only";
     const fetch = vi.fn().mockResolvedValue(

@@ -192,6 +192,26 @@ program
     "--teacher-provider <id>",
     "Explicit provider for remote teacher protocol",
   )
+  .option(
+    "--teacher-token-env <name>",
+    "Environment variable for a separate teaching-only token",
+    "APPRENTICE_TEACHER_TOKEN",
+  )
+  .option(
+    "--teacher-max-requests <n>",
+    "Lifetime teaching call limit (1-100)",
+    "100",
+  )
+  .option(
+    "--teacher-max-concurrent <n>",
+    "Concurrent teaching calls (1-2)",
+    "2",
+  )
+  .option(
+    "--teacher-max-reserved-tokens <n>",
+    "Lifetime conservative byte/token reservation (max 1300000)",
+    "1300000",
+  )
   .action(async (o) => {
     if (!process.env.APPRENTICE_API_TOKEN)
       throw new Error(
@@ -205,6 +225,12 @@ program
         Number(o.port),
         process.env.APPRENTICE_API_TOKEN,
         o.teacherProvider,
+        process.env[o.teacherTokenEnv],
+        {
+          maxRequests: Number(o.teacherMaxRequests),
+          maxConcurrent: Number(o.teacherMaxConcurrent),
+          maxReservedTokens: Number(o.teacherMaxReservedTokens),
+        },
       );
     } catch (e) {
       await engine.close();

@@ -33,14 +33,17 @@ export async function boundedJson(response: Response) {
   const reader = response.body?.getReader();
   if (!reader) throw new Error("Empty provider response");
   let raw = "";
+  let bytes = 0;
+  const decoder = new TextDecoder();
   try {
     for (;;) {
       const { value, done } = await reader.read();
       if (done) break;
-      raw += new TextDecoder().decode(value);
-      if (raw.length > 1000000)
-        throw new Error("Provider response exceeded 1 MB");
+      bytes += value.byteLength;
+      if (bytes > 1000000) throw new Error("Provider response exceeded 1 MB");
+      raw += decoder.decode(value, { stream: true });
     }
+    raw += decoder.decode();
   } finally {
     await reader.cancel().catch(() => {});
   }

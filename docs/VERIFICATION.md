@@ -5,7 +5,7 @@ These are local implementation checks, not an independent security certification
 ## Passed locally
 
 - TypeScript strict typecheck and ESLint.
-- 22 tests across core lifecycle, capability integrity/disable/retest, protocol adapters, private API, SSE shutdown, React component behavior and real Docker evaluation.
+- 30 tests across core lifecycle, capability integrity/disable/retest, protocol adapters, separated administrator/teacher authorization and bounded teacher service, UTF-8 chunk decoding, four-arm prompt fairness, SSE shutdown, React behavior and real Docker evaluation.
 - Docker tests were explicitly enabled against an existing isolated Colima Docker daemon (29.5.2), using the explicitly pulled `node:24-alpine` image. They executed TypeScript, detected defective code, cancelled a nonterminating student and checked that host credential/socket access was absent.
 - Playwright Electron E2E: real window startup, sandboxed renderer without `require`, simulated teaching, capability archive, disable, restart persistence, four-arm comparison, provider configuration.
 - CLI simulated lesson completed using the Node-native SQLite copy after the Electron-native copy was rebuilt.
@@ -13,6 +13,17 @@ These are local implementation checks, not an independent security certification
 - Packaged application smoke: application starts, native SQLite works, simulated lesson completes, capability survives exit/restart.
 - Production dependency inventory contained MIT, Apache-2.0, BSD-3-Clause, ISC and 0BSD declarations. See `THIRD_PARTY_NOTICES.md`.
 - Source search found no personal absolute paths, private-key headers or obvious GitHub/OpenAI key prefixes. This is a heuristic check, not a guarantee of complete secret detection.
+
+## Release-blocker corrections
+
+An independent review rejected the initial implementation for shared teacher/admin credentials, unequal acceptance specifications across experimental arms, and broken UTF-8 decoding across response chunks. These were fixed before this validation rerun:
+
+- Distinct teacher credentials can invoke only `/v1/teach`; regression checks deny snapshots, provider updates, events and health. Teacher requests cannot select a provider endpoint or secret environment variable. Startup snapshots the chosen provider.
+- Teacher service has finite per-lifetime attempts/reservations, bounded concurrency, input/output sizes and timeout. Failed attempts remain charged.
+- Course `maintainer-inputs@1.1` puts all acceptance rules into the task given to every arm. Teaching material adds methods only. A real-adapter request-capture regression verifies identical exam specifications and no extra method in the baseline; its evaluator is a controlled fixture, not a claim of learning efficacy.
+- A persistent streaming TextDecoder preserves Chinese/emoji even with single-byte chunks. The response cap counts actual bytes.
+
+After the fixes, `pnpm check` passed (26 tests, four Docker tests explicitly skipped), the explicitly enabled Docker run passed all 30 tests, Electron E2E passed, and `pnpm pack:mac` plus `pnpm smoke:packaged` passed against rebuilt unsigned macOS arm64 artifacts. Independent re-review and publication remain release-owner responsibilities.
 
 ## Not established
 

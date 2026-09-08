@@ -50,6 +50,19 @@ node dist/cli.cjs doctor
 
 源码和测试输入通过标准输入传入容器，TypeScript 在容器内部处理；不挂载任何宿主机目录，不依赖 Docker VM 的目录共享设置。
 
+## 远端老师权限
+
+服务使用两枚不同的凭据：`APPRENTICE_API_TOKEN` 只给本机管理员；`APPRENTICE_TEACHER_TOKEN` 只给学生调用 `/v1/teach`，不能读取档案、事件或修改模型配置。启用教学时，缺少独立教师凭据或复用管理员凭据会拒绝启动。
+
+```sh
+# 分别在本机生成两份强随机凭据，不要粘贴到日志
+export APPRENTICE_API_TOKEN="$(openssl rand -hex 32)"
+export APPRENTICE_TEACHER_TOKEN="$(openssl rand -hex 32)"
+node dist/cli.cjs serve --teacher-provider your-provider-id
+```
+
+教师服务最多 100 次上游尝试/生命周期、2 个并发、30 秒/调用、600 个请求输出 token，并有输入字节及累计预留预算限制；失败也计入预算。通过 `--teacher-max-requests` 等参数只能降低限制。远端代理只应公开 `/v1/teach`，不公开管理接口。完整权限与限制见 [协议](docs/PROTOCOL.md)。
+
 ## 数据和能力归属
 
 CLI 默认数据目录是 `~/.agent-apprentice`；桌面默认使用 Electron 应用数据目录。`APPRENTICE_DATA` 可以覆盖。每个目录只允许一个协调器，防止桌面与 CLI 重复调度；需要同时使用时通过已认证的本地 API 连接。

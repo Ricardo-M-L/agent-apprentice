@@ -1,9 +1,11 @@
-export const COURSE = "maintainer-inputs@1.0";
-export const material = `You maintain a TypeScript input-validation library. Export function normalizeTags(input: unknown): string[]. Accept only arrays of strings. Trim every string and lowercase it, remove empty strings, deduplicate while preserving first appearance. Throw TypeError for a non-array or any non-string element. Validate all elements before returning. Never coerce values. No imports, network, filesystem or external dependencies. Return only one TypeScript source file. These conventions are public teaching material, not exam answers.`;
+export const COURSE = "maintainer-inputs@1.1";
+// WHAT is required is identical in every arm; teaching material supplies HOW.
+export const specification = `Export function normalizeTags(input: unknown): string[]. Accept only arrays of strings. Trim every string and lowercase it, remove empty strings, deduplicate while preserving first appearance. Throw TypeError for a non-array or any non-string element. Validate all elements before returning. Never coerce values. No imports, network, filesystem or external dependencies. Return only one TypeScript source file.`;
+export const material = `Maintainer methods: separate validation from transformation. Check the container before inspecting elements, and validate the entire collection before producing output. Use a deliberate pipeline for normalization and filtering; use an insertion-ordered membership structure to deduplicate. Review empty collections, mixed element types and repeated values. Write small focused tests against the public task specification. These are procedural suggestions, not extra acceptance requirements or exam answers.`;
 export function task(seed: number, exam = false) {
   return {
     seed,
-    description: `Implement export function normalizeTags(input: unknown): string[] for a tags library. Preserve insertion order. ${exam ? "Independent graduation task. Do not consult a teacher." : "Practice task. You may receive feedback."} ${seed % 2 ? "The library is used by a case-insensitive search index." : "The library rejects invalid user inputs rather than coercing them."} Return only TypeScript source, no markdown.`,
+    description: `${specification}\n${exam ? "Independent graduation task. Do not consult a teacher." : "Practice task. You may receive feedback."} Return only TypeScript source, no markdown.`,
     file: "solution.ts",
   };
 }

@@ -4,7 +4,7 @@ Runtime authority lives in `packages/protocol/index.ts` (Zod). `node scripts/sch
 
 ## Private coordinator
 
-All HTTP routes require `Authorization: Bearer <APPRENTICE_API_TOKEN>` (minimum 32 characters). Use random tokens, do not commit them. Requests with Origin headers or non-loopback Host headers are rejected. Default maximum JSON request body is 220 KB. No unauthenticated health endpoint exists.
+Administrator HTTP routes require `Authorization: Bearer <APPRENTICE_API_TOKEN>` (minimum 32 characters). Use random tokens, do not commit them. Requests with Origin headers or non-loopback Host headers are rejected. Default maximum JSON request body is 220 KB. No unauthenticated health endpoint exists.
 
 - `GET /health`: application version and readiness.
 - `POST /v1/command`: one discriminated typed command; no arbitrary paths, shell or SQL.
@@ -20,6 +20,27 @@ Example command body:
 `learn` and `compare` return session records immediately. Query `snapshot` or listen for events. A local standalone CLI waits for completion; a CLI attached with `--url` receives session IDs and can query status. `cancel` needs the running coordinator, not a different empty directory.
 
 ## Teacher interchange
+
+### Separate authorization
+
+Teaching uses **a different token** from administration. `APPRENTICE_API_TOKEN` authorizes only `/health`, `/v1/command` and `/v1/events`. `APPRENTICE_TEACHER_TOKEN` authorizes only `POST /v1/teach`: no snapshot, settings, provider changes, administrative tasks, events or health access. The administrator token is not accepted on the teaching route. Both tokens must have at least 32 characters; enabling teaching with a missing or reused token fails startup.
+
+```sh
+export APPRENTICE_API_TOKEN="$(openssl rand -hex 32)"
+export APPRENTICE_TEACHER_TOKEN="$(openssl rand -hex 32)"
+node dist/cli.cjs serve --teacher-provider my-configured-provider \
+  --teacher-token-env APPRENTICE_TEACHER_TOKEN \
+  --teacher-max-requests 100 --teacher-max-concurrent 2 \
+  --teacher-max-reserved-tokens 1300000
+```
+
+Generate credentials locally and never log them. Share only the teaching token. The provider, endpoint and credential environment variable are fixed by the operator at startup, not supplied by students.
+
+### Finite service budget
+
+The teacher endpoint caps each server lifetime at 100 upstream attempts (including failures), two concurrent calls, 30 seconds per call, 12,000 UTF-8 input bytes, 600 requested output tokens and 12,000 UTF-8 guidance bytes. Each request reserves input bytes plus system bytes, protocol allowance and requested output tokens before inference. The lifetime reservation cap is 1,300,000; this is conservative resource accounting, not exact token billing or a dollar guarantee. Failures do not refund reservations. CLI flags may lower, but not exceed, default limits. Operator restart explicitly grants a new finite budget.
+
+Exhausted budget/concurrency returns 429; oversized input returns 413; invalid protocol fields return 400. A TLS reverse proxy should expose **only `/v1/teach`**, never administrator routes. Authentication and bounded calls do not establish cross-user trust.
 
 ```json
 {"version":"1.0","material":"Authorized teacher material","studentAttempt":"Student's generated attempt","feedback":"Practice feedback","task":"Public practice description"}

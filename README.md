@@ -71,14 +71,14 @@ If using Colima or another Docker context, explicitly set the corresponding `DOC
 
 ## Remote teaching
 
-Generate your own strong API token, place it in `APPRENTICE_API_TOKEN`, then:
+Generate two distinct random tokens: `APPRENTICE_API_TOKEN` for your administrator CLI, and `APPRENTICE_TEACHER_TOKEN` for students. Never give students the administrator token. Then:
 
 ```sh
 node dist/cli.cjs serve --port 4318 --teacher-provider my-teacher
 node dist/cli.cjs --url http://127.0.0.1:4318 status
 ```
 
-The service binds only to loopback. Remote deployment requires your authenticated HTTPS reverse proxy; it must preserve a loopback Host accepted by the service. There is no unauthenticated public discovery. See [protocol](docs/PROTOCOL.md). Treat access tokens as access to your workspace, not just a teaching invitation: use a separate data directory/token for each trust boundary.
+The service binds only to loopback. Remote deployment requires your authenticated HTTPS reverse proxy; expose only `/v1/teach` and preserve a loopback Host accepted by the service. The teaching credential cannot access administration or events. Teaching is capped at 100 lifetime attempts, two concurrent calls, 30 seconds/call, 600 requested output tokens/call, and a finite lifetime reservation budget; CLI flags can lower limits. There is no unauthenticated public discovery. See [protocol](docs/PROTOCOL.md) for exact limits and permission boundaries.
 
 ## Development and verification
 
