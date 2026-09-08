@@ -1,0 +1,11 @@
+Agent Apprentice
+Copyright 2026 Agent Apprentice contributors
+
+This repository contains an original implementation licensed under Apache-2.0.
+Third-party dependencies retain their own copyrights and licenses.
+
+Agent Teams AI informed the choice of desktop/runtime separation. No source
+code or assets from that AGPL-3.0 project are incorporated in this repository.
+
+Bundled course materials are original Apache-2.0 examples. Imported teacher
+materials and model access remain subject to their respective permissions.

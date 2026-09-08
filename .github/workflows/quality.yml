@@ -1,0 +1,47 @@
+name: Quality
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+      - run: docker pull node:24-alpine
+      - run: APPRENTICE_TEST_DOCKER=1 pnpm test
+  desktop:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm rebuild:electron
+      - run: pnpm test
+      - run: pnpm test:e2e
+      - run: pnpm pack:dir
+      - run: pnpm smoke:packaged
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: desktop-test-evidence
+          path: test-results/

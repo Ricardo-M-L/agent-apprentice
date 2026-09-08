@@ -1,0 +1,93 @@
+{
+  "name": "agent-apprentice",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "author": "Agent Apprentice contributors",
+  "description": "A local-first classroom where personal agents learn, practice and graduate independently",
+  "main": "dist/main.cjs",
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "pnpm build && electron .",
+    "start": "electron .",
+    "cli": "node dist/cli.cjs",
+    "build": "tsc --noEmit && vite build && node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
+    "rebuild:electron": "node scripts/rebuild-electron.mjs",
+    "test:e2e": "pnpm build && playwright test",
+    "pack:mac": "pnpm build && pnpm rebuild:electron && electron-builder --mac --arm64",
+    "pack:dir": "pnpm build && pnpm rebuild:electron && electron-builder --dir",
+    "smoke:packaged": "node scripts/smoke-packaged.mjs"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
+    "better-sqlite3": "^12.4.1",
+    "commander": "^14.0.2",
+    "drizzle-orm": "^0.44.7",
+    "fastify": "^5.6.1",
+    "lucide-react": "^0.468.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "sqlite-electron": "npm:better-sqlite3@12.10.0",
+    "zod": "^3.25.76",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.1",
+    "@eslint/js": "^9.39.0",
+    "@playwright/test": "^1.56.1",
+    "@tailwindcss/vite": "^4.1.17",
+    "@testing-library/react": "^16.3.3",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.19.0",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.25.12",
+    "eslint": "^9.39.0",
+    "globals": "^16.5.0",
+    "happy-dom": "^20.14.0",
+    "prettier": "^3.9.6",
+    "tailwindcss": "^4.1.17",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.3",
+    "vite": "^6.4.1",
+    "vitest": "^3.2.4",
+    "zod-to-json-schema": "^3.25.2"
+  },
+  "build": {
+    "appId": "org.agentapprentice.desktop",
+    "productName": "Agent Apprentice",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/sqlite-electron/**",
+      "node_modules/better-sqlite3/**"
+    ],
+    "npmRebuild": false,
+    "mac": {
+      "icon": "resources/icon.png",
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "identity": null
+    },
+    "publish": null
+  }
+}

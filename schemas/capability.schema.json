@@ -1,0 +1,121 @@
+{
+  "$ref": "#/definitions/capability",
+  "definitions": {
+    "capability": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "const": "1.0"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 150
+        },
+        "method": {
+          "type": "string",
+          "maxLength": 30000
+        },
+        "source": {
+          "type": "object",
+          "properties": {
+            "teacher": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "license": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "session": {
+              "$ref": "#/definitions/capability/properties/id"
+            }
+          },
+          "required": ["teacher", "license", "session"],
+          "additionalProperties": false
+        },
+        "conditions": {
+          "type": "object",
+          "properties": {
+            "model": {
+              "type": "string"
+            },
+            "provider": {
+              "type": "string"
+            },
+            "course": {
+              "type": "string"
+            },
+            "runtime": {
+              "type": "string"
+            },
+            "execution": {
+              "type": "string",
+              "enum": ["demo", "docker"]
+            }
+          },
+          "required": ["model", "provider", "course", "runtime", "execution"],
+          "additionalProperties": false
+        },
+        "verified": {
+          "type": "boolean"
+        },
+        "simulated": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "passed": {
+                "type": "boolean"
+              },
+              "detail": {
+                "type": "string"
+              }
+            },
+            "required": ["name", "passed", "detail"],
+            "additionalProperties": false
+          },
+          "maxItems": 100
+        },
+        "checksum": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "version",
+        "id",
+        "title",
+        "method",
+        "source",
+        "conditions",
+        "verified",
+        "simulated",
+        "enabled",
+        "createdAt",
+        "results",
+        "checksum"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

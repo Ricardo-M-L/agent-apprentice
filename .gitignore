@@ -1,0 +1,12 @@
+node_modules/
+dist/
+release/
+*.db*
+.env*
+!.env.example
+.apprentice/
+test-results/
+playwright-report/
+.DS_Store
+coverage/
+*.log

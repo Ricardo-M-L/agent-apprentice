@@ -1,0 +1,33 @@
+{
+  "$ref": "#/definitions/teacher-request",
+  "definitions": {
+    "teacher-request": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "const": "1.0"
+        },
+        "material": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "studentAttempt": {
+          "type": "string",
+          "maxLength": 12000
+        },
+        "feedback": {
+          "type": "string",
+          "maxLength": 8000
+        },
+        "task": {
+          "type": "string",
+          "maxLength": 8000
+        }
+      },
+      "required": ["version", "material", "studentAttempt", "feedback", "task"],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
