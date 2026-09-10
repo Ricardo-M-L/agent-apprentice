@@ -136,11 +136,9 @@ export async function serve(
       requests >= limits.maxRequests ||
       reservedTokens + reservation > limits.maxReservedTokens
     )
-      return reply
-        .code(429)
-        .send({
-          error: "Teaching service budget or concurrency limit reached",
-        });
+      return reply.code(429).send({
+        error: "Teaching service budget or concurrency limit reached",
+      });
     requests++;
     concurrent++;
     reservedTokens += reservation;
@@ -157,6 +155,7 @@ export async function serve(
           shutdown.signal,
           AbortSignal.timeout(limits.timeoutMs),
         ]),
+        engine.keyResolver,
       );
       if (Buffer.byteLength(result.text, "utf8") > 12000)
         throw new Error("Teacher output budget exceeded");

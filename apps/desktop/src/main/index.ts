@@ -1,4 +1,18 @@
-import { app, BrowserWindow, ipcMain, utilityProcess, dialog } from "electron";
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  utilityProcess,
+  dialog,
+  safeStorage,
+} from "electron";
+import { z } from "zod";
+import { CredentialVault } from "./credentials";
+import {
+  ProviderSchema,
+  type Provider,
+} from "../../../../packages/protocol/index";
+import { validateEndpoint } from "../../../../packages/adapters/index";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { CommandSchema } from "../../../../packages/protocol/index";
@@ -31,6 +45,7 @@ if (!app.requestSingleInstanceLock()) {
     .whenReady()
     .then(async () => {
       const data = app.getPath("userData");
+      const vault = new CredentialVault(data, safeStorage);
       worker = utilityProcess.fork(join(__dirname, "worker.cjs"), [], {
         env: {
           ...process.env,
@@ -40,6 +55,21 @@ if (!app.requestSingleInstanceLock()) {
         serviceName: "Apprentice coordinator",
       });
       worker.on("message", (m: any) => {
+        if (m.secretRequest) {
+          try {
+            worker.postMessage({
+              secretReply: m.secretRequest,
+              key: vault.get(ProviderSchema.parse(m.provider)),
+            });
+          } catch {
+            worker.postMessage({
+              secretReply: m.secretRequest,
+              error:
+                "Saved credential is unavailable or does not match the endpoint",
+            });
+          }
+          return;
+        }
         if (m.event || m.refresh) {
           window?.webContents.send(
             "apprentice:event",
@@ -71,6 +101,85 @@ if (!app.requestSingleInstanceLock()) {
           );
           app.quit();
         }
+      });
+      let credentialQueue = Promise.resolve<unknown>(undefined);
+      ipcMain.handle("apprentice:credentials", async (event, input) => {
+        if (
+          !window ||
+          event.sender !== window.webContents ||
+          event.senderFrame !== window.webContents.mainFrame ||
+          event.senderFrame.url !== entry
+        )
+          throw new Error("IPC sender denied");
+        const operation = z
+          .discriminatedUnion("type", [
+            z.object({ type: z.literal("status") }).strict(),
+            z
+              .object({
+                type: z.literal("save"),
+                provider: ProviderSchema,
+                key: z.string().min(1).max(16384).optional(),
+              })
+              .strict(),
+            z
+              .object({ type: z.literal("remove"), id: z.string().max(80) })
+              .strict(),
+          ])
+          .parse(input);
+        const task = credentialQueue.then(async () => {
+          const snapshot = await request({ type: "snapshot" });
+          if (operation.type === "status")
+            return {
+              path: vault.path,
+              available: vault.available(),
+              saved: snapshot.providers
+                .filter((p: Provider) => p.credentialRef && vault.has(p))
+                .map((p: Provider) => p.id),
+            };
+          const old = snapshot.providers.find(
+            (p: Provider) =>
+              p.id ===
+              (operation.type === "save"
+                ? operation.provider.id
+                : operation.id),
+          ) as Provider | undefined;
+          if (operation.type === "remove") {
+            if (!old?.credentialRef) return true;
+            const { credentialRef, ...provider } = old;
+            await request({ type: "provider.save", value: provider });
+            vault.remove(credentialRef);
+            return true;
+          }
+          const provider = { ...operation.provider };
+          validateEndpoint(provider);
+          let fresh: string | undefined;
+          if (operation.key !== undefined) {
+            delete provider.keyEnv;
+            fresh = vault.put(provider, operation.key);
+            provider.credentialRef = fresh;
+          } else if (
+            provider.credentialRef &&
+            (provider.credentialRef !== old?.credentialRef ||
+              !vault.has(provider))
+          )
+            throw new Error("Save the API key again for this endpoint");
+          try {
+            await request({ type: "provider.save", value: provider });
+          } catch {
+            if (fresh) vault.remove(fresh);
+            throw new Error(
+              "Provider save failed; previous configuration retained",
+            );
+          }
+          if (
+            old?.credentialRef &&
+            old.credentialRef !== provider.credentialRef
+          )
+            vault.remove(old.credentialRef);
+          return true;
+        });
+        credentialQueue = task.catch(() => {});
+        return task;
       });
       ipcMain.handle("apprentice:command", async (event, input) => {
         if (

@@ -1,5 +1,16 @@
-import { ProviderSchema, type Provider, redact } from "../protocol/index";
+import { ProviderSchema, type Provider } from "../protocol/index";
+import { anthropic } from "./anthropic";
 import { referenceCode, weakCode } from "../evaluation/course";
+export async function providerFetch(
+  url: string,
+  options: RequestInit,
+): Promise<Response> {
+  try {
+    return await fetch(url, options);
+  } catch {
+    throw new Error("Provider request failed or cancelled");
+  }
+}
 export interface Completion {
   text: string;
   input: number | null;
@@ -47,16 +58,34 @@ export async function boundedJson(response: Response) {
   } finally {
     await reader.cancel().catch(() => {});
   }
-  if (!response.ok)
+  if (!response.ok) throw new Error(`Provider HTTP ${response.status}`);
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error("Provider returned invalid JSON");
+  }
+}
+export type KeyResolver = (provider: Provider) => Promise<string>;
+export async function resolveKey(provider: Provider, resolver?: KeyResolver) {
+  if (provider.credentialRef) {
+    if (!resolver)
+      throw new Error(
+        "Saved credentials require the desktop secure store. Use an environment variable in CLI mode.",
+      );
+    return resolver(provider);
+  }
+  const key = provider.keyEnv ? process.env[provider.keyEnv] : undefined;
+  if (!key)
     throw new Error(
-      `Provider HTTP ${response.status}: ${redact(raw.slice(0, 500))}`,
+      "Missing explicitly configured API key environment variable. Existing login files are never read.",
     );
-  return JSON.parse(raw);
+  return key;
 }
 export async function complete(
   provider: Provider,
   prompt: Prompt,
   signal: AbortSignal,
+  resolver?: KeyResolver,
 ): Promise<Completion> {
   validateEndpoint(provider);
   signal.throwIfAborted();
@@ -92,11 +121,9 @@ export async function complete(
       cost: 0,
     };
   }
-  const key = provider.keyEnv ? process.env[provider.keyEnv] : undefined;
-  if (!key)
-    throw new Error(
-      `Missing explicitly configured environment variable ${provider.keyEnv ?? "(keyEnv not set)"}. Existing login files are never read.`,
-    );
+  const key = await resolveKey(provider, resolver);
+  if (provider.kind === "anthropic")
+    return anthropic(provider, prompt, signal, key);
   const base = provider.baseUrl!.replace(/\/$/, "");
   let body: unknown;
   let endpoint: string;
@@ -122,7 +149,7 @@ export async function complete(
       stream: false,
     };
   }
-  const res = await fetch(endpoint, {
+  const res = await providerFetch(endpoint, {
     method: "POST",
     headers: {
       Authorization: "Bearer " + key,
@@ -161,21 +188,23 @@ export async function complete(
     provider.priceOutput !== undefined
       ? (input * provider.priceInput + output * provider.priceOutput) / 1e6
       : null;
-  return { text: text.slice(0, 30000), input, output, cost };
+  return {
+    text: text.split(key).join("[REDACTED]").slice(0, 30000),
+    input,
+    output,
+    cost,
+  };
 }
 export async function remoteTeach(
   provider: Provider,
   payload: unknown,
   signal: AbortSignal,
+  resolver?: KeyResolver,
 ): Promise<Completion> {
   validateEndpoint(provider);
-  const key = provider.keyEnv ? process.env[provider.keyEnv] : undefined;
-  if (!key)
-    throw new Error(
-      "Remote teacher authentication environment variable is missing",
-    );
+  const key = await resolveKey(provider, resolver);
   const json = await boundedJson(
-    await fetch(provider.baseUrl!.replace(/\/$/, "") + "/v1/teach", {
+    await providerFetch(provider.baseUrl!.replace(/\/$/, "") + "/v1/teach", {
       method: "POST",
       headers: {
         Authorization: "Bearer " + key,
@@ -193,7 +222,12 @@ export async function remoteTeach(
     json.guidance.length > 30000
   )
     throw new Error("Invalid remote teacher protocol response");
-  return { text: json.guidance, input: null, output: null, cost: null };
+  return {
+    text: json.guidance.split(key).join("[REDACTED]"),
+    input: null,
+    output: null,
+    cost: null,
+  };
 }
 export function sourceOnly(text: string) {
   const match = text.match(

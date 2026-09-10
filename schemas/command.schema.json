@@ -11,7 +11,9 @@
               "const": "snapshot"
             }
           },
-          "required": ["type"],
+          "required": [
+            "type"
+          ],
           "additionalProperties": false
         },
         {
@@ -39,6 +41,7 @@
                     "demo",
                     "chat",
                     "responses",
+                    "anthropic",
                     "remote-teacher",
                     "metis"
                   ]
@@ -57,6 +60,9 @@
                   "type": "string",
                   "pattern": "^[A-Z][A-Z0-9_]{0,79}$"
                 },
+                "credentialRef": {
+                  "$ref": "#/definitions/command/anyOf/1/properties/value/properties/id"
+                },
                 "priceInput": {
                   "type": "number",
                   "minimum": 0
@@ -66,11 +72,19 @@
                   "minimum": 0
                 }
               },
-              "required": ["id", "name", "kind", "model"],
+              "required": [
+                "id",
+                "name",
+                "kind",
+                "model"
+              ],
               "additionalProperties": false
             }
           },
-          "required": ["type", "value"],
+          "required": [
+            "type",
+            "value"
+          ],
           "additionalProperties": false
         },
         {
@@ -124,7 +138,10 @@
               "additionalProperties": false
             }
           },
-          "required": ["type", "value"],
+          "required": [
+            "type",
+            "value"
+          ],
           "additionalProperties": false
         },
         {
@@ -145,7 +162,12 @@
                 },
                 "arm": {
                   "type": "string",
-                  "enum": ["none", "docs", "static", "teaching"],
+                  "enum": [
+                    "none",
+                    "docs",
+                    "static",
+                    "teaching"
+                  ],
                   "default": "teaching"
                 },
                 "rounds": {
@@ -174,7 +196,10 @@
                 },
                 "execution": {
                   "type": "string",
-                  "enum": ["demo", "docker"],
+                  "enum": [
+                    "demo",
+                    "docker"
+                  ],
                   "default": "demo"
                 },
                 "consent": {
@@ -191,11 +216,17 @@
                   "$ref": "#/definitions/command/anyOf/1/properties/value/properties/id"
                 }
               },
-              "required": ["studentId", "teacherId"],
+              "required": [
+                "studentId",
+                "teacherId"
+              ],
               "additionalProperties": false
             }
           },
-          "required": ["type", "value"],
+          "required": [
+            "type",
+            "value"
+          ],
           "additionalProperties": false
         },
         {
@@ -209,7 +240,10 @@
               "$ref": "#/definitions/command/anyOf/3/properties/value"
             }
           },
-          "required": ["type", "value"],
+          "required": [
+            "type",
+            "value"
+          ],
           "additionalProperties": false
         },
         {
@@ -223,7 +257,10 @@
               "$ref": "#/definitions/command/anyOf/1/properties/value/properties/id"
             }
           },
-          "required": ["type", "id"],
+          "required": [
+            "type",
+            "id"
+          ],
           "additionalProperties": false
         },
         {
@@ -237,7 +274,10 @@
               "$ref": "#/definitions/command/anyOf/1/properties/value/properties/id"
             }
           },
-          "required": ["type", "id"],
+          "required": [
+            "type",
+            "id"
+          ],
           "additionalProperties": false
         },
         {
@@ -252,7 +292,10 @@
               "maxLength": 200000
             }
           },
-          "required": ["type", "json"],
+          "required": [
+            "type",
+            "json"
+          ],
           "additionalProperties": false
         },
         {
@@ -269,7 +312,11 @@
               "type": "boolean"
             }
           },
-          "required": ["type", "id", "enabled"],
+          "required": [
+            "type",
+            "id",
+            "enabled"
+          ],
           "additionalProperties": false
         },
         {
@@ -283,7 +330,10 @@
               "$ref": "#/definitions/command/anyOf/1/properties/value/properties/id"
             }
           },
-          "required": ["type", "id"],
+          "required": [
+            "type",
+            "id"
+          ],
           "additionalProperties": false
         },
         {
@@ -297,7 +347,10 @@
               "$ref": "#/definitions/command/anyOf/1/properties/value/properties/id"
             }
           },
-          "required": ["type", "id"],
+          "required": [
+            "type",
+            "id"
+          ],
           "additionalProperties": false
         },
         {
@@ -308,7 +361,9 @@
               "const": "environment"
             }
           },
-          "required": ["type"],
+          "required": [
+            "type"
+          ],
           "additionalProperties": false
         }
       ]

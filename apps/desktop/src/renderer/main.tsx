@@ -30,9 +30,16 @@ import type {
   Capability,
 } from "../../../../packages/protocol/index";
 import "./style.css";
+import { useTranslation, useLanguage, eventMessage, type Locale } from "./i18n";
 declare global {
   interface Window {
     apprentice: {
+      credentials: (
+        value:
+          | { type: "status" }
+          | { type: "save"; provider: Provider; key?: string }
+          | { type: "remove"; id: string },
+      ) => Promise<any>;
       command: (value: Command) => Promise<any>;
       onEvent: (callback: (e: Event) => void) => () => void;
     };
@@ -88,6 +95,7 @@ function Modal({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
+  const tr = useTranslation();
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -95,7 +103,7 @@ function Modal({
         <Dialog.Content className="dialog">
           <Dialog.Title>{title}</Dialog.Title>
           <Dialog.Description>{description}</Dialog.Description>
-          <Dialog.Close className="close" aria-label="Close dialog">
+          <Dialog.Close className="close" aria-label={tr("Close dialog")}>
             <X size={18} />
           </Dialog.Close>
           {children}
@@ -105,12 +113,29 @@ function Modal({
   );
 }
 export function App() {
+  const tr = useTranslation();
+  const { locale, setLocale, persistenceError } = useLanguage();
+  const [settings, setSettings] = useState(false);
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    document.title =
+      locale === "zh-CN"
+        ? "Agent Apprentice · Agent 拜师工作台"
+        : "Agent Apprentice";
+  }, [locale]);
   const { page, setPage, snapshot, setSnapshot, selected, select } = useApp();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [env, setEnv] = useState<any>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [add, setAdd] = useState(false);
+  const [editing, setEditing] = useState<Provider | undefined>();
+  const [remote, setRemote] = useState(false);
+  const [credentialStatus, setCredentialStatus] = useState<{
+    path: string;
+    available: boolean;
+    saved: string[];
+  }>();
   const [teacherAdd, setTeacherAdd] = useState(false);
   const [view, setView] = useState<Capability | null>(null);
   const [deleteId, setDeleteId] = useState("");
@@ -126,6 +151,10 @@ export function App() {
   async function refresh() {
     const next = await window.apprentice.command({ type: "snapshot" });
     setSnapshot(next);
+    if (window.apprentice.credentials)
+      setCredentialStatus(
+        await window.apprentice.credentials({ type: "status" }),
+      );
   }
   async function action(c: Command) {
     setError("");
@@ -201,7 +230,7 @@ export function App() {
     const f = e.target.files?.[0];
     if (f) {
       if (f.size > 200000) {
-        setError("Capability exceeds 200 KB");
+        setError(tr("Capability exceeds 200 KB"));
         return;
       }
       await action({ type: "capability.import", json: await f.text() });
@@ -219,21 +248,24 @@ export function App() {
             <GraduationCap size={25} />
           </div>
           <div>
-            apprentice<small>PERSONAL AGENT LEARNING</small>
+            {"apprentice"}
+            <small>{tr("PERSONAL AGENT LEARNING")}</small>
           </div>
         </div>
         <div className="workspace">
-          <span className="dot" /> Personal workspace <Badge>LOCAL</Badge>
+          <span className="dot" /> {tr("Personal workspace")}
+          <Badge>{tr("LOCAL")}</Badge>
         </div>
         <nav>
           {pages.map((p) => (
             <button
               key={p.name}
+              aria-label={tr(p.name)}
               className={page === p.name ? "nav active" : "nav"}
               onClick={() => setPage(p.name)}
             >
               <p.icon size={19} />
-              {p.name}
+              {tr(p.name)}
               {p.name === "Capabilities" && (
                 <span className="count">{snapshot.capabilities.length}</span>
               )}
@@ -244,28 +276,29 @@ export function App() {
           <div className="safety">
             <Shield size={18} />
             <div>
-              Knowledge stays yours
-              <small>No telemetry. No account required.</small>
+              {tr("Knowledge stays yours")}
+              <small>{tr("No telemetry. No account required.")}</small>
             </div>
           </div>
-          <p>v0.1.0 · Research preview</p>
+          <p>{tr("v0.1.0 · Research preview")}</p>
         </div>
       </aside>
       <main>
         <header>
           <div>
-            <span className="breadcrumb">Personal workspace / </span>
-            {page}
+            <span className="breadcrumb">{tr("Personal workspace /")} </span>
+            {tr(page)}
           </div>
           <div className="top-actions">
             <span className="dot" />
-            {running ? `${running} in progress` : "Coordinator ready"}
+            {running
+              ? tr("{count} in progress", { count: running })
+              : tr("Coordinator ready")}
             <button
               className="icon-button"
-              aria-label="Refresh environment"
-              onClick={() => {
-                void action({ type: "environment" }).then(setEnv);
-              }}
+              aria-label={tr("Settings")}
+              title={tr("Settings")}
+              onClick={() => setSettings(true)}
             >
               <Settings size={18} />
             </button>
@@ -276,39 +309,68 @@ export function App() {
             <div>
               <p className="eyebrow">
                 {page === "Learn"
-                  ? "FROM EXPERIENCE TO INDEPENDENCE"
-                  : "YOUR LEARNING WORKSPACE"}
+                  ? tr("FROM EXPERIENCE TO INDEPENDENCE")
+                  : tr("YOUR LEARNING WORKSPACE")}
               </p>
               <h1>
                 {page === "Learn"
-                  ? "A little guidance. A lasting capability."
-                  : page}
+                  ? tr("A little guidance. A lasting capability.")
+                  : tr(page)}
               </h1>
               <p className="subtitle">
                 {page === "Learn"
-                  ? "Let your agent learn from a teacher — then see what it can do on its own."
+                  ? tr(
+                      "Let your agent learn from a teacher — then see what it can do on its own.",
+                    )
                   : page === "My agents"
-                    ? "Bring your own models. Keep the student the same when comparing results."
+                    ? tr(
+                        "Bring your own models. Keep the student the same when comparing results.",
+                      )
                     : page === "Teachers"
-                      ? "Explicit expertise, materials and permissions. No hidden access to your files."
+                      ? tr(
+                          "Explicit expertise, materials and permissions. No hidden access to your files.",
+                        )
                       : page === "Capabilities"
-                        ? "Portable methods with provenance. A passed exercise is not a universal guarantee."
-                        : "Measure learning against simpler alternatives, not against a hand-picked demo."}
+                        ? tr(
+                            "Portable methods with provenance. A passed exercise is not a universal guarantee.",
+                          )
+                        : tr(
+                            "Measure learning against simpler alternatives, not against a hand-picked demo.",
+                          )}
               </p>
             </div>
             {page === "My agents" && (
-              <button className="primary" onClick={() => setAdd(true)}>
-                <Plus size={17} /> Add agent
-              </button>
+              <div className="button-row">
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    setEditing(undefined);
+                    setRemote(true);
+                    setAdd(true);
+                  }}
+                >
+                  {tr("Connect remote teacher")}
+                </button>
+                <button
+                  className="primary"
+                  onClick={() => {
+                    setEditing(undefined);
+                    setRemote(false);
+                    setAdd(true);
+                  }}
+                >
+                  <Plus size={17} /> {tr("Add agent")}
+                </button>
+              </div>
             )}
             {page === "Teachers" && (
               <button className="primary" onClick={() => setTeacherAdd(true)}>
-                <Plus size={17} /> Add teacher
+                <Plus size={17} /> {tr("Add teacher")}
               </button>
             )}
             {page === "Capabilities" && (
               <label className="button secondary">
-                <Upload size={17} /> Import package
+                <Upload size={17} /> {tr("Import package")}
                 <input
                   hidden
                   type="file"
@@ -322,17 +384,24 @@ export function App() {
             <div className="notice">
               <Library size={18} />
               <span>
-                Independent retest of {retest.slice(0, 8)}. Review student,
-                execution and consent below. No teacher will be called.
+                {tr(
+                  "Independent retest of {id}. Review student, execution and consent below. No teacher will be called.",
+                  { id: retest.slice(0, 8) },
+                )}
               </span>
-              <button onClick={() => setRetest("")}>New lesson instead</button>
+              <button onClick={() => setRetest("")}>
+                {tr("New lesson instead")}
+              </button>
             </div>
           )}
           {error && (
             <div role="alert" className="notice danger">
               <AlertTriangle size={18} />
               <span>{error}</span>
-              <button onClick={() => setError("")} aria-label="Dismiss error">
+              <button
+                onClick={() => setError("")}
+                aria-label={tr("Dismiss error")}
+              >
                 ×
               </button>
             </div>
@@ -342,9 +411,10 @@ export function App() {
               <div className="notice">
                 <FlaskConical size={18} />
                 <span>
-                  <strong>Evidence before claims.</strong> Offline demo uses
-                  fixed simulated fixtures. Real learning requires configured
-                  providers and Docker; no automatic credential discovery.
+                  <strong>{tr("Evidence before claims.")}</strong>{" "}
+                  {tr(
+                    "Offline demo uses fixed simulated fixtures. Real learning requires configured providers and Docker; no automatic credential discovery.",
+                  )}
                 </span>
               </div>
               <div className="learning-grid">
@@ -352,15 +422,15 @@ export function App() {
                   <div className="panel-title">
                     <h2>
                       {page === "Experiments"
-                        ? "Experiment setup"
-                        : "Set up a lesson"}
+                        ? tr("Experiment setup")
+                        : tr("Set up a lesson")}
                     </h2>
                     <Badge>01</Badge>
                   </div>
                   <label>
-                    STUDENT
+                    {tr("STUDENT")}
                     <select
-                      aria-label="Student"
+                      aria-label={tr("Student")}
                       value={student}
                       onChange={(e) => setStudent(e.target.value)}
                     >
@@ -376,11 +446,11 @@ export function App() {
                         ))}
                     </select>
                   </label>
-                  <div className="connector">learns from ↓</div>
+                  <div className="connector">{tr("learns from ↓")}</div>
                   <label>
-                    TEACHER
+                    {tr("TEACHER")}
                     <select
-                      aria-label="Teacher"
+                      aria-label={tr("Teacher")}
                       value={teacher}
                       onChange={(e) => setTeacher(e.target.value)}
                     >
@@ -394,30 +464,32 @@ export function App() {
                   <div className="course">
                     <BookOpen size={19} />
                     <div>
-                      <strong>Maintainer foundations</strong>
-                      <p>TypeScript · Input validation · Error semantics</p>
+                      <strong>{tr("Maintainer foundations")}</strong>
+                      <p>
+                        {tr("TypeScript · Input validation · Error semantics")}
+                      </p>
                     </div>
                   </div>
                   <label>
-                    EXECUTION
+                    {tr("EXECUTION")}
                     <select
-                      aria-label="Execution"
+                      aria-label={tr("Execution")}
                       value={execution}
                       onChange={(e) => setExecution(e.target.value as any)}
                     >
                       <option value="demo">
-                        Offline simulation — no code execution
+                        {tr("Offline simulation — no code execution")}
                       </option>
                       <option value="docker">
-                        Real model + isolated Docker execution
+                        {tr("Real model + isolated Docker execution")}
                       </option>
                     </select>
                   </label>
                   <div className="field-row">
                     <label>
-                      TOKEN RESERVATION
+                      {tr("TOKEN RESERVATION")}
                       <input
-                        aria-label="Token budget"
+                        aria-label={tr("Token budget")}
                         type="number"
                         value={tokens}
                         min={100}
@@ -426,9 +498,9 @@ export function App() {
                       />
                     </label>
                     <label>
-                      PRACTICE ROUNDS
+                      {tr("PRACTICE ROUNDS")}
                       <input
-                        aria-label="Practice rounds"
+                        aria-label={tr("Practice rounds")}
                         type="number"
                         value={rounds}
                         min={1}
@@ -441,8 +513,12 @@ export function App() {
                     <>
                       <p className="hint">
                         {env?.docker
-                          ? "Docker available. The course image must already be pulled."
-                          : "Docker unavailable. Real runs fail closed; there is no host fallback."}
+                          ? tr(
+                              "Docker available. The course image must already be pulled.",
+                            )
+                          : tr(
+                              "Docker unavailable. Real runs fail closed; there is no host fallback.",
+                            )}
                       </p>
                       <label className="consent">
                         <input
@@ -450,10 +526,9 @@ export function App() {
                           checked={consent}
                           onChange={(e) => setConsent(e.target.checked)}
                         />{" "}
-                        I authorize sending the selected teacher material,
-                        public course task, generated attempts and practice
-                        feedback to the configured model/teacher endpoints. No
-                        private files are selected.
+                        {tr(
+                          "I authorize sending the selected teacher material, public course task, generated attempts and practice feedback to the configured model/teacher endpoints. No private files are selected.",
+                        )}
                       </label>
                     </>
                   )}
@@ -464,29 +539,30 @@ export function App() {
                   >
                     <Play size={16} />
                     {page === "Experiments"
-                      ? "Run four-arm comparison"
+                      ? tr("Run four-arm comparison")
                       : execution === "demo"
-                        ? "Start simulated lesson"
-                        : "Start learning"}
+                        ? tr("Start simulated lesson")
+                        : tr("Start learning")}
                   </button>
                   <p className="hint">
-                    12 calls maximum · 3-minute deadline per arm · Cancel
-                    anytime
+                    {tr(
+                      "12 calls maximum · 3-minute deadline per arm · Cancel anytime",
+                    )}
                   </p>
                 </div>
                 {page === "Learn" ? (
                   <div className="panel room">
                     <div className="panel-title">
-                      <h2>Learning room</h2>
+                      <h2>{tr("Learning room")}</h2>
                       {active ? (
                         <Badge
                           tone={active.status === "completed" ? "green" : ""}
                         >
-                          {active.simulated ? "SIMULATED · " : ""}
-                          {active.status}
+                          {active.simulated ? tr("SIMULATED · ") : ""}
+                          {tr(active.status)}
                         </Badge>
                       ) : (
-                        <Badge>READY</Badge>
+                        <Badge>{tr("READY")}</Badge>
                       )}
                     </div>
                     <div className="steps">
@@ -505,8 +581,8 @@ export function App() {
                         >
                           <span>{i + 1}</span>
                           {s === "completed"
-                            ? "Graduate"
-                            : s[0].toUpperCase() + s.slice(1)}
+                            ? tr("Graduate")
+                            : tr(s[0].toUpperCase() + s.slice(1))}
                         </div>
                       ))}
                     </div>
@@ -515,19 +591,21 @@ export function App() {
                         <div className="orbit">
                           <GraduationCap size={42} />
                         </div>
-                        <h3>Your agent’s next skill starts here</h3>
+                        <h3>{tr("Your agent’s next skill starts here")}</h3>
                         <p>
-                          Choose a student and teacher. Practice together.
+                          {tr(
+                            "Choose a student and teacher. Practice together.",
+                          )}
                           <br />
-                          Graduate independently, with evidence.
+                          {tr("Graduate independently, with evidence.")}
                         </p>
-                        <Badge>TEACH → PRACTICE → VERIFY</Badge>
+                        <Badge>{tr("TEACH → PRACTICE → VERIFY")}</Badge>
                       </div>
                     ) : (
                       <>
                         <div className="session-meta">
                           <span>
-                            {active.id.slice(0, 8)} · {active.options.arm}
+                            {active.id.slice(0, 8)} · {tr(active.options.arm)}
                           </span>
                           {(active.status === "running" ||
                             active.status === "queued") && (
@@ -537,7 +615,7 @@ export function App() {
                                 void action({ type: "cancel", id: active.id })
                               }
                             >
-                              <Square size={13} /> Cancel
+                              <Square size={13} /> {tr("Cancel")}
                             </button>
                           )}
                         </div>
@@ -548,13 +626,15 @@ export function App() {
                               <div>
                                 <div className="event-head">
                                   <strong>
-                                    {e.kind.replaceAll(".", " / ")}
+                                    {locale === "en"
+                                      ? e.kind.replaceAll(".", " / ")
+                                      : tr(e.kind)}
                                   </strong>
                                   <time>
-                                    {new Date(e.at).toLocaleTimeString()}
+                                    {new Date(e.at).toLocaleTimeString(locale)}
                                   </time>
                                 </div>
-                                <p>{e.message}</p>
+                                <p>{eventMessage(locale, e.kind, e.message)}</p>
                                 {e.kind === "lesson" && (
                                   <pre>{(e.data as any)?.guidance}</pre>
                                 )}
@@ -565,7 +645,7 @@ export function App() {
                                         key={i}
                                         className={r.passed ? "pass" : "fail"}
                                       >
-                                        {r.passed ? "✓" : "×"} {r.name}
+                                        {r.passed ? "✓" : "×"} {tr(r.name)}
                                       </span>
                                     ))}
                                   </div>
@@ -576,32 +656,32 @@ export function App() {
                         </div>
                         <div className="metrics">
                           <div>
-                            <small>Calls</small>
+                            <small>{tr("Calls")}</small>
                             <strong>{active.usage.calls}</strong>
                           </div>
                           <div>
-                            <small>Reported tokens</small>
+                            <small>{tr("Reported tokens")}</small>
                             <strong>
                               {active.usage.input === null ||
                               active.usage.output === null
-                                ? "Unknown"
+                                ? tr("Unknown")
                                 : active.usage.input + active.usage.output}
                             </strong>
                           </div>
                           <div>
                             <small>
                               {active.simulated
-                                ? "Demo cost"
-                                : "Estimated cost"}
+                                ? tr("Demo cost")
+                                : tr("Estimated cost")}
                             </small>
                             <strong>
                               {active.usage.cost === null
-                                ? "Unknown"
+                                ? tr("Unknown")
                                 : "$" + active.usage.cost.toFixed(4)}
                             </strong>
                           </div>
                           <div>
-                            <small>Exam</small>
+                            <small>{tr("Exam")}</small>
                             <strong>
                               {active.results.length
                                 ? `${active.results.filter((r) => r.passed).length}/${active.results.length}`
@@ -615,11 +695,13 @@ export function App() {
                 ) : (
                   <div className="panel">
                     <div className="panel-title">
-                      <h2>A fairer question</h2>
+                      <h2>{tr("A fairer question")}</h2>
                       <FlaskConical size={20} />
                     </div>
                     <h3 className="large-copy">
-                      Did teaching help more than simply sharing a skill?
+                      {tr(
+                        "Did teaching help more than simply sharing a skill?",
+                      )}
                     </h3>
                     <div className="arms">
                       {[
@@ -637,17 +719,16 @@ export function App() {
                         ],
                       ].map(([id, title, desc]) => (
                         <div key={id}>
-                          <Badge>{id}</Badge>
-                          <strong>{title}</strong>
-                          <p>{desc}</p>
+                          <Badge>{tr(id)}</Badge>
+                          <strong>{tr(title)}</strong>
+                          <p>{tr(desc)}</p>
                         </div>
                       ))}
                     </div>
                     <p className="hint">
-                      Same student, course seed and per-task budget. Teaching
-                      overhead is included. Changes in model or environment
-                      require a new comparison. Simulation results are fixtures,
-                      not measurements.
+                      {tr(
+                        "Same student, course seed and per-task budget. Teaching overhead is included. Changes in model or environment require a new comparison. Simulation results are fixtures, not measurements.",
+                      )}
                     </p>
                   </div>
                 )}
@@ -656,26 +737,28 @@ export function App() {
                 <div className="panel-title">
                   <h2>
                     {page === "Learn"
-                      ? "Recent sessions"
-                      : "Experiment results"}
+                      ? tr("Recent sessions")
+                      : tr("Experiment results")}
                   </h2>
-                  <span className="muted">{snapshot.sessions.length} runs</span>
+                  <span className="muted">
+                    {snapshot.sessions.length} {tr("runs")}
+                  </span>
                 </div>
                 {!snapshot.sessions.length ? (
                   <p className="muted">
-                    No sessions yet. Start a lesson above.
+                    {tr("No sessions yet. Start a lesson above.")}
                   </p>
                 ) : (
                   <table>
                     <thead>
                       <tr>
-                        <th>Session</th>
-                        <th>Condition</th>
-                        <th>Status</th>
-                        <th>Exam</th>
-                        <th>Calls</th>
-                        <th>Cost</th>
-                        <th>Elapsed</th>
+                        <th>{tr("Session")}</th>
+                        <th>{tr("Condition")}</th>
+                        <th>{tr("Status")}</th>
+                        <th>{tr("Exam")}</th>
+                        <th>{tr("Calls")}</th>
+                        <th>{tr("Cost")}</th>
+                        <th>{tr("Elapsed")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -690,10 +773,10 @@ export function App() {
                           <td>
                             <span className="mono">{s.id.slice(0, 8)}</span>
                             {s.simulated && (
-                              <small className="sim">SIMULATION</small>
+                              <small className="sim">{tr("SIMULATION")}</small>
                             )}
                           </td>
-                          <td>{s.options.arm}</td>
+                          <td>{tr(s.options.arm)}</td>
                           <td>
                             <Badge
                               tone={
@@ -704,7 +787,7 @@ export function App() {
                                     : ""
                               }
                             >
-                              {s.status}
+                              {tr(s.status)}
                             </Badge>
                           </td>
                           <td>
@@ -715,7 +798,7 @@ export function App() {
                           <td>{s.usage.calls}</td>
                           <td>
                             {s.usage.cost === null
-                              ? "Unknown"
+                              ? tr("Unknown")
                               : "$" + s.usage.cost.toFixed(4)}
                           </td>
                           <td>
@@ -740,26 +823,64 @@ export function App() {
                       <Terminal size={25} />
                     </div>
                     <Badge tone={p.kind === "demo" ? "amber" : "green"}>
-                      {p.kind === "demo" ? "SIMULATED" : p.kind}
+                      {p.kind === "demo" ? tr("SIMULATED") : p.kind}
                     </Badge>
                     <h2>{p.name}</h2>
                     <p className="mono">{p.model}</p>
                     <div className="card-detail">
-                      <span>Authentication</span>
+                      <span>{tr("Authentication")}</span>
                       <strong>
                         {p.kind === "demo"
-                          ? "Not required"
-                          : (p.keyEnv ?? "Not configured")}
+                          ? tr("Not required")
+                          : p.credentialRef
+                            ? tr(
+                                credentialStatus?.saved.includes(p.id)
+                                  ? "Securely saved"
+                                  : "Saved key unavailable",
+                              )
+                            : (p.keyEnv ?? tr("Not configured"))}
                       </strong>
                     </div>
                     <div className="card-detail">
-                      <span>Endpoint</span>
-                      <strong>{p.baseUrl ?? "Offline fixture"}</strong>
+                      <span>{tr("Endpoint")}</span>
+                      <strong>{p.baseUrl ?? tr("Offline fixture")}</strong>
                     </div>
+                    {p.kind !== "metis" && (
+                      <button
+                        className="secondary"
+                        onClick={() => {
+                          setEditing(p);
+                          setRemote(p.kind === "remote-teacher");
+                          setAdd(true);
+                        }}
+                      >
+                        {tr("Edit connection")}
+                      </button>
+                    )}
+                    {p.credentialRef && (
+                      <button
+                        className="secondary"
+                        onClick={async () => {
+                          try {
+                            await window.apprentice.credentials({
+                              type: "remove",
+                              id: p.id,
+                            });
+                            await refresh();
+                          } catch (e) {
+                            setError((e as Error).message);
+                          }
+                        }}
+                      >
+                        {tr("Remove saved key")}
+                      </button>
+                    )}
                     <p className="hint">
                       {p.kind === "metis"
-                        ? "Disabled until isolated execution is verified."
-                        : "Credentials are never displayed, exported or read from existing login files."}
+                        ? tr("Disabled until isolated execution is verified.")
+                        : tr(
+                            "Credentials are never displayed, exported or read from existing login files.",
+                          )}
                     </p>
                   </div>
                 ))}
@@ -767,9 +888,9 @@ export function App() {
               <div className="notice">
                 <Shield size={18} />
                 <span>
-                  Provide only the environment variable name holding your key.
-                  The coordinator must be launched with that variable set.
-                  Saving an agent does not make a paid request.
+                  {tr(
+                    "Enter an API key for encrypted system storage, or choose an environment variable. No other application's configuration is read or changed.",
+                  )}
                 </span>
               </div>
             </>
@@ -787,11 +908,13 @@ export function App() {
                   <h2>{t.name}</h2>
                   <p>{t.description}</p>
                   <div className="scope">
-                    <small>TEACHING SCOPE</small>
+                    <small>{tr("TEACHING SCOPE")}</small>
                     <p>{t.scope}</p>
                   </div>
                   <details>
-                    <summary>Review materials sent during teaching</summary>
+                    <summary>
+                      {tr("Review materials sent during teaching")}
+                    </summary>
                     <pre>{t.material}</pre>
                   </details>
                   <button
@@ -801,7 +924,8 @@ export function App() {
                       setPage("Learn");
                     }}
                   >
-                    Learn with this teacher <ArrowUpRight size={16} />
+                    {tr("Learn with this teacher")}
+                    <ArrowUpRight size={16} />
                   </button>
                 </div>
               ))}
@@ -812,12 +936,14 @@ export function App() {
               {!snapshot.capabilities.length ? (
                 <div className="panel empty-room">
                   <Library size={38} />
-                  <h3>A library of things your agent can do</h3>
+                  <h3>{tr("A library of things your agent can do")}</h3>
                   <p>
-                    Complete a lesson to create your first capability record.
+                    {tr(
+                      "Complete a lesson to create your first capability record.",
+                    )}
                   </p>
                   <button className="primary" onClick={() => setPage("Learn")}>
-                    Start a lesson
+                    {tr("Start a lesson")}
                   </button>
                 </div>
               ) : (
@@ -834,10 +960,10 @@ export function App() {
                           }
                         >
                           {c.simulated
-                            ? "SIMULATED"
+                            ? tr("SIMULATED")
                             : c.verified
-                              ? "VERIFIED IN CONTEXT"
-                              : "UNVERIFIED"}
+                              ? tr("VERIFIED IN CONTEXT")
+                              : tr("UNVERIFIED")}
                         </Badge>
                       </div>
                       <h2>{c.title}</h2>
@@ -846,27 +972,29 @@ export function App() {
                         {c.method.length > 150 ? "…" : ""}
                       </p>
                       <div className="card-detail">
-                        <span>Student</span>
+                        <span>{tr("Student")}</span>
                         <strong>{c.conditions.model}</strong>
                       </div>
                       <div className="card-detail">
-                        <span>Course</span>
+                        <span>{tr("Course")}</span>
                         <strong>{c.conditions.course}</strong>
                       </div>
                       <div className="card-detail">
-                        <span>Status</span>
-                        <strong>{c.enabled ? "Enabled" : "Disabled"}</strong>
+                        <span>{tr("Status")}</span>
+                        <strong>
+                          {c.enabled ? tr("Enabled") : tr("Disabled")}
+                        </strong>
                       </div>
                       <div className="button-row">
                         <button
                           className="secondary"
                           onClick={() => setView(c)}
                         >
-                          Inspect
+                          {tr("Inspect")}
                         </button>
                         <button
                           className="icon-button"
-                          aria-label={"Export " + c.id}
+                          aria-label={tr("Export") + " " + c.id}
                           onClick={() => void download(c)}
                         >
                           <Download size={17} />
@@ -881,7 +1009,7 @@ export function App() {
                             })
                           }
                         >
-                          {c.enabled ? "Disable" : "Enable"}
+                          {c.enabled ? tr("Disable") : tr("Enable")}
                         </button>
                       </div>
                       <div className="button-row">
@@ -905,13 +1033,13 @@ export function App() {
                             setPage("Learn");
                           }}
                         >
-                          Independent retest
+                          {tr("Independent retest")}
                         </button>
                         <button
                           className="text-button destructive"
                           onClick={() => setDeleteId(c.id)}
                         >
-                          Delete
+                          {tr("Delete")}
                         </button>
                       </div>
                     </div>
@@ -919,40 +1047,117 @@ export function App() {
                 </div>
               )}
               <p className="hint">
-                Checksums detect accidental changes, not author identity.
-                Imported packages are unverified and disabled until you review
-                and explicitly enable them.
+                {tr(
+                  "Checksums detect accidental changes, not author identity. Imported packages are unverified and disabled until you review and explicitly enable them.",
+                )}
               </p>
             </>
           )}
         </section>
         <footer>
-          <Shield size={13} /> Local-first · No telemetry{" "}
-          <span>Agent Apprentice / Open-source learning workspace</span>
+          <Shield size={13} /> {tr("Local-first · No telemetry")}{" "}
+          <span>{tr("Agent Apprentice / Open-source learning workspace")}</span>
         </footer>
       </main>
       <Modal
+        open={settings}
+        onOpenChange={setSettings}
+        title={tr("Settings")}
+        description={tr(
+          "Choose your display language. Changes apply immediately and are remembered on this device.",
+        )}
+      >
+        <label>
+          {tr("Language")}
+          <select
+            aria-label={tr("Language")}
+            value={locale}
+            onChange={(e) => setLocale(e.target.value as Locale)}
+          >
+            <option value="zh-CN">简体中文</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+        {error && (
+          <p role="alert" className="notice danger">
+            {error}
+          </p>
+        )}
+        {persistenceError && (
+          <p role="alert">
+            {tr(
+              "Language could not be saved. This change lasts until the app closes.",
+            )}
+          </p>
+        )}
+        <h3>{tr("Environment")}</h3>
+        <p>
+          Docker:{" "}
+          {tr(
+            env === null
+              ? "Checking…"
+              : env?.docker
+                ? "Available"
+                : "Unavailable",
+          )}
+        </p>
+        <div className="button-row">
+          <button
+            className="secondary"
+            disabled={busy}
+            onClick={() => {
+              void action({ type: "environment" }).then((result) => {
+                if (result) setEnv(result);
+              });
+            }}
+          >
+            {tr("Refresh environment")}
+          </button>
+          <button className="primary" onClick={() => setSettings(false)}>
+            {tr("Done")}
+          </button>
+        </div>
+      </Modal>
+      <Modal
         open={add}
         onOpenChange={setAdd}
-        title="Connect an agent"
-        description="Only explicit model endpoints and environment variable names. No credential scanning."
+        title={tr("Connect an agent")}
+        description={tr(
+          "Keys are encrypted in this application's data directory. No credential scanning.",
+        )}
       >
         {error && (
           <p role="alert" className="notice danger">
             {error}
           </p>
         )}
+        <p className="hint">{credentialStatus?.path}</p>
         <ProviderForm
-          onSave={async (value) => {
-            if (await action({ type: "provider.save", value })) setAdd(false);
+          key={editing?.id ?? String(remote)}
+          initial={editing}
+          remote={remote}
+          available={credentialStatus?.available ?? false}
+          onSave={async (provider, key) => {
+            try {
+              await window.apprentice.credentials({
+                type: "save",
+                provider,
+                ...(key ? { key } : {}),
+              });
+              await refresh();
+              setAdd(false);
+              setError("");
+            } catch (e) {
+              setError((e as Error).message);
+            }
           }}
         />
       </Modal>
       <Modal
         open={teacherAdd}
         onOpenChange={setTeacherAdd}
-        title="Create a teacher"
-        description="Only share materials you have permission to use."
+        title={tr("Create a teacher")}
+        description={tr("Only share materials you have permission to use.")}
       >
         {error && (
           <p role="alert" className="notice danger">
@@ -972,8 +1177,10 @@ export function App() {
         onOpenChange={(v) => {
           if (!v) setView(null);
         }}
-        title="Capability evidence"
-        description="Validation is conditional on the recorded environment, not a universal certificate."
+        title={tr("Capability evidence")}
+        description={tr(
+          "Validation is conditional on the recorded environment, not a universal certificate.",
+        )}
       >
         {view && (
           <>
@@ -981,7 +1188,7 @@ export function App() {
               {JSON.stringify(view, null, 2)}
             </pre>
             <button className="primary" onClick={() => void download(view)}>
-              Export package
+              {tr("Export package")}
             </button>
           </>
         )}
@@ -991,12 +1198,14 @@ export function App() {
         onOpenChange={(v) => {
           if (!v) setDeleteId("");
         }}
-        title="Delete capability?"
-        description="This removes the local capability record. Session evidence remains. Export a copy first if needed."
+        title={tr("Delete capability?")}
+        description={tr(
+          "This removes the local capability record. Session evidence remains. Export a copy first if needed.",
+        )}
       >
         <div className="button-row">
           <button className="secondary" onClick={() => setDeleteId("")}>
-            Keep capability
+            {tr("Keep capability")}
           </button>
           <button
             className="primary danger-button"
@@ -1005,111 +1214,205 @@ export function App() {
               setDeleteId("");
             }}
           >
-            Delete capability
+            {tr("Delete capability")}
           </button>
         </div>
       </Modal>
     </div>
   );
 }
-function ProviderForm({ onSave }: { onSave: (p: Provider) => void }) {
-  const [kind, setKind] = useState<Provider["kind"]>("responses");
+function ProviderForm({
+  onSave,
+  initial,
+  remote,
+  available,
+}: {
+  onSave: (p: Provider, key?: string) => void;
+  initial?: Provider;
+  remote: boolean;
+  available: boolean;
+}) {
+  const tr = useTranslation();
+  const [kind, setKind] = useState<Provider["kind"]>(
+    initial?.kind ?? (remote ? "remote-teacher" : "responses"),
+  );
+  const [auth, setAuth] = useState(initial?.keyEnv ? "env" : "key");
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         const d = new FormData(e.currentTarget);
-        onSave({
-          id: String(d.get("id")),
-          name: String(d.get("name")),
-          kind,
-          model: String(d.get("model")),
-          ...(kind !== "demo"
-            ? { baseUrl: String(d.get("url")), keyEnv: String(d.get("key")) }
-            : {}),
-          ...(d.get("input") ? { priceInput: Number(d.get("input")) } : {}),
-          ...(d.get("output") ? { priceOutput: Number(d.get("output")) } : {}),
-        });
+        onSave(
+          {
+            id: String(d.get("id")),
+            name: String(d.get("name")),
+            kind,
+            model: String(d.get("model")),
+            ...(kind !== "demo"
+              ? {
+                  baseUrl: String(d.get("url")),
+                  ...(auth === "env"
+                    ? { keyEnv: String(d.get("key")) }
+                    : initial?.credentialRef && !d.get("secret")
+                      ? { credentialRef: initial.credentialRef }
+                      : {}),
+                }
+              : {}),
+            ...(d.get("input") ? { priceInput: Number(d.get("input")) } : {}),
+            ...(d.get("output")
+              ? { priceOutput: Number(d.get("output")) }
+              : {}),
+          },
+          kind !== "demo" && auth === "key"
+            ? String(d.get("secret") || "") || undefined
+            : undefined,
+        );
       }}
     >
       <div className="field-row">
         <label>
-          ID
+          {tr("ID")}
           <input
             name="id"
             required
             pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}"
             placeholder="my-student"
+            defaultValue={initial?.id}
+            readOnly={!!initial}
           />
         </label>
         <label>
-          DISPLAY NAME
-          <input name="name" required placeholder="My local agent" />
+          {tr("DISPLAY NAME")}
+          <input
+            name="name"
+            required
+            defaultValue={initial?.name}
+            placeholder={tr("My local agent")}
+          />
         </label>
       </div>
       <label>
-        PROTOCOL
-        <select value={kind} onChange={(e) => setKind(e.target.value as any)}>
-          <option value="responses">OpenAI Responses</option>
-          <option value="chat">OpenAI Chat Completions</option>
-          <option value="remote-teacher">Remote teacher protocol</option>
-          <option value="demo">Offline simulation</option>
-        </select>
+        {tr("PROTOCOL")}
+        {remote ? (
+          <p>{tr("Remote teacher protocol")} — /v1/teach</p>
+        ) : (
+          <select value={kind} onChange={(e) => setKind(e.target.value as any)}>
+            <option value="responses">{tr("OpenAI Responses")}</option>
+            <option value="chat">{tr("OpenAI Chat Completions")}</option>
+            <option value="anthropic">Anthropic Messages</option>
+            <option value="demo">{tr("Offline simulation")}</option>
+          </select>
+        )}
       </label>
       <label>
-        MODEL
+        {tr("MODEL")}
         <input
           required
           name="model"
-          placeholder="Model identifier from your provider"
+          defaultValue={initial?.model ?? (remote ? "remote-teacher" : "")}
+          placeholder={tr("Model identifier from your provider")}
         />
       </label>
       {kind !== "demo" && (
         <>
           <label>
-            BASE URL
+            {tr("BASE URL")}
             <input
               required
               name="url"
               type="url"
-              placeholder="https://api.openai.com/v1"
+              defaultValue={initial?.baseUrl}
+              placeholder={
+                kind === "anthropic"
+                  ? "https://api.anthropic.com"
+                  : remote
+                    ? "https://teacher.example.com"
+                    : "https://api.openai.com/v1"
+              }
             />
           </label>
           <label>
-            KEY ENVIRONMENT VARIABLE
-            <input
-              required
-              name="key"
-              pattern="[A-Z][A-Z0-9_]{0,79}"
-              placeholder="APPRENTICE_MODEL_KEY"
-            />
+            {tr("Authentication")}
+            <select value={auth} onChange={(e) => setAuth(e.target.value)}>
+              <option value="key">{tr("API key (secure storage)")}</option>
+              <option value="env">{tr("Environment variable name")}</option>
+            </select>
           </label>
+          {auth === "key" ? (
+            <>
+              <label>
+                {tr("API key")}
+                <input
+                  name="secret"
+                  type="password"
+                  autoComplete="new-password"
+                  maxLength={16384}
+                  required={!initial?.credentialRef}
+                  placeholder={tr(
+                    initial?.credentialRef
+                      ? "Leave blank to keep saved key"
+                      : "Paste your API key",
+                  )}
+                />
+              </label>
+              <p className="hint">
+                {tr(
+                  available
+                    ? "Encrypted using system secure storage. Never written to other applications or shell configuration."
+                    : "System secure storage unavailable. Use environment variable mode; plaintext saving is disabled.",
+                )}
+              </p>
+            </>
+          ) : (
+            <>
+              <label>
+                {tr("KEY ENVIRONMENT VARIABLE")}
+                <input
+                  required
+                  name="key"
+                  pattern="[A-Z][A-Z0-9_]{0,79}"
+                  defaultValue={initial?.keyEnv}
+                  placeholder="OPENAI_API_KEY"
+                  title={tr(
+                    "Enter a variable name, not the API key. Start with A-Z; use A-Z, 0-9 or underscore.",
+                  )}
+                />
+              </label>
+              <p className="hint">
+                {tr(
+                  "Enter a name such as OPENAI_API_KEY, not its secret value. Set it before launching the app; no global configuration is changed.",
+                )}
+              </p>
+            </>
+          )}
         </>
       )}
       <div className="field-row">
         <label>
-          INPUT $ / 1M TOKENS
+          {tr("INPUT $ / 1M TOKENS")}
           <input
             name="input"
+            defaultValue={initial?.priceInput}
             type="number"
             min="0"
             step="any"
-            placeholder="Unknown"
+            placeholder={tr("Unknown")}
           />
         </label>
         <label>
-          OUTPUT $ / 1M TOKENS
+          {tr("OUTPUT $ / 1M TOKENS")}
           <input
             name="output"
+            defaultValue={initial?.priceOutput}
             type="number"
             min="0"
             step="any"
-            placeholder="Unknown"
+            placeholder={tr("Unknown")}
           />
         </label>
       </div>
       <button className="primary wide" type="submit">
-        Save agent
+        {tr("Save agent")}
       </button>
     </form>
   );
@@ -1121,6 +1424,7 @@ function TeacherForm({
   providers: Provider[];
   onSave: (t: Teacher) => void;
 }) {
+  const tr = useTranslation();
   return (
     <form
       onSubmit={(e) => {
@@ -1139,16 +1443,16 @@ function TeacherForm({
     >
       <div className="field-row">
         <label>
-          ID
+          {tr("ID")}
           <input required name="id" pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}" />
         </label>
         <label>
-          NAME
+          {tr("NAME")}
           <input required name="name" />
         </label>
       </div>
       <label>
-        AGENT
+        {tr("AGENT")}
         <select name="provider">
           {providers.map((p) => (
             <option key={p.id} value={p.id}>
@@ -1158,27 +1462,27 @@ function TeacherForm({
         </select>
       </label>
       <label>
-        DESCRIPTION
+        {tr("DESCRIPTION")}
         <input name="description" required />
       </label>
       <label>
-        TEACHING SCOPE
+        {tr("TEACHING SCOPE")}
         <input name="scope" required />
       </label>
       <label>
-        MATERIAL LICENSE
+        {tr("MATERIAL LICENSE")}
         <input
           name="license"
           required
-          placeholder="e.g. Apache-2.0 or your explicit authorization"
+          placeholder={tr("e.g. Apache-2.0 or your explicit authorization")}
         />
       </label>
       <label>
-        AUTHORIZED TEACHING MATERIAL
+        {tr("AUTHORIZED TEACHING MATERIAL")}
         <textarea name="material" rows={6} maxLength={20000} required />
       </label>
       <button className="primary wide" type="submit">
-        Create teacher
+        {tr("Create teacher")}
       </button>
     </form>
   );

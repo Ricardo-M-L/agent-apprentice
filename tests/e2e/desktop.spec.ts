@@ -10,6 +10,11 @@ test("desktop teaches, archives, disables, restores and compares without exposin
   });
   try {
     let page = await app.firstWindow();
+    await page.getByRole("button", { name: /^(Settings|设置)$/ }).click();
+    await page
+      .getByRole("combobox", { name: /^(Language|界面语言)$/ })
+      .selectOption("en");
+    await page.getByRole("button", { name: "Done", exact: true }).click();
     await expect(
       page.getByRole("heading", {
         name: "A little guidance. A lasting capability.",
@@ -66,6 +71,9 @@ test("desktop teaches, archives, disables, restores and compares without exposin
     await page
       .getByRole("textbox", { name: "BASE URL", exact: true })
       .fill("http://localhost:11434/v1");
+    await page
+      .getByRole("combobox", { name: "Authentication" })
+      .selectOption("env");
     await page
       .getByRole("textbox", { name: "KEY ENVIRONMENT VARIABLE", exact: true })
       .fill("EXPLICIT_TEST_KEY");

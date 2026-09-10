@@ -16,7 +16,16 @@ test("component validates explicit provider configuration and displays server fa
     if (c.type === "environment") return { docker: false };
     throw new Error("Endpoint rejected by policy");
   });
-  window.apprentice = { command, onEvent: () => () => {} };
+  window.apprentice = {
+    command,
+    credentials: async (c) =>
+      c.type === "status"
+        ? { available: true, saved: [], path: "/test/credentials.enc.json" }
+        : c.type === "save"
+          ? command({ type: "provider.save", value: c.provider })
+          : true,
+    onEvent: () => () => {},
+  };
   try {
     render(<App />);
     await waitFor(() => expect(command).toHaveBeenCalled());
@@ -34,6 +43,9 @@ test("component validates explicit provider configuration and displays server fa
     });
     fireEvent.change(screen.getByRole("textbox", { name: "BASE URL" }), {
       target: { value: "https://example.test/v1" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "Authentication" }), {
+      target: { value: "env" },
     });
     fireEvent.change(
       screen.getByRole("textbox", { name: "KEY ENVIRONMENT VARIABLE" }),

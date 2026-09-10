@@ -36,7 +36,11 @@
               "$ref": "#/definitions/capability/properties/id"
             }
           },
-          "required": ["teacher", "license", "session"],
+          "required": [
+            "teacher",
+            "license",
+            "session"
+          ],
           "additionalProperties": false
         },
         "conditions": {
@@ -56,10 +60,19 @@
             },
             "execution": {
               "type": "string",
-              "enum": ["demo", "docker"]
+              "enum": [
+                "demo",
+                "docker"
+              ]
             }
           },
-          "required": ["model", "provider", "course", "runtime", "execution"],
+          "required": [
+            "model",
+            "provider",
+            "course",
+            "runtime",
+            "execution"
+          ],
           "additionalProperties": false
         },
         "verified": {
@@ -90,7 +103,11 @@
                 "type": "string"
               }
             },
-            "required": ["name", "passed", "detail"],
+            "required": [
+              "name",
+              "passed",
+              "detail"
+            ],
             "additionalProperties": false
           },
           "maxItems": 100

@@ -200,15 +200,13 @@ describe("teaching capability authorization and budgets", () => {
   });
   it("caps provider output and charges failed attempts without releasing lifetime budget", async () => {
     process.env.APPRENTICE_TEST_KEY = "test-only";
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            choices: [{ message: { content: "x".repeat(13000) } }],
-          }),
-        ),
-      );
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "x".repeat(13000) } }],
+        }),
+      ),
+    );
     vi.stubGlobal("fetch", fetchMock);
     const { server } = await make({ maxRequests: 1 }, true);
     const result = await server.inject({

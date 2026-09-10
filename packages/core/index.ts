@@ -18,6 +18,7 @@ import {
   remoteTeach,
   sourceOnly,
   validateEndpoint,
+  type KeyResolver,
   type Prompt,
   type Completion,
 } from "../adapters/index";
@@ -30,7 +31,10 @@ export class Engine extends EventEmitter {
   private jobs = new Map<string, Promise<void>>();
   private tail: Promise<void> = Promise.resolve();
   private closed = false;
-  constructor(directory: string) {
+  constructor(
+    directory: string,
+    readonly keyResolver?: KeyResolver,
+  ) {
     super();
     this.store = new Store(directory);
     if (!this.store.get("provider", "demo-student")) {
@@ -231,8 +235,9 @@ export class Engine extends EventEmitter {
                 task: task(s.options.seed).description,
               },
               signal,
+              this.keyResolver,
             )
-          : await complete(p, prompt, signal);
+          : await complete(p, prompt, signal, this.keyResolver);
       s.usage.input =
         s.usage.input === null || result.input === null
           ? null

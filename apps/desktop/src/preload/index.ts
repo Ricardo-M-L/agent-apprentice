@@ -3,6 +3,8 @@ import type { Command, Event } from "../../../../packages/protocol/index";
 contextBridge.exposeInMainWorld(
   "apprentice",
   Object.freeze({
+    credentials: (value: unknown) =>
+      ipcRenderer.invoke("apprentice:credentials", value),
     command: (value: Command) =>
       ipcRenderer.invoke("apprentice:command", value),
     onEvent: (callback: (e: Event) => void) => {

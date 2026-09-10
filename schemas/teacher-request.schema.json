@@ -25,7 +25,13 @@
           "maxLength": 8000
         }
       },
-      "required": ["version", "material", "studentAttempt", "feedback", "task"],
+      "required": [
+        "version",
+        "material",
+        "studentAttempt",
+        "feedback",
+        "task"
+      ],
       "additionalProperties": false
     }
   },

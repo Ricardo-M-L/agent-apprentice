@@ -2,13 +2,46 @@ import { Engine } from "../../../../packages/core/index";
 import { serve } from "../../../../packages/core/server";
 import { redact } from "../../../../packages/protocol/index";
 const parent = (process as any).parentPort;
-const engine = new Engine(process.env.APPRENTICE_DATA!);
+const secrets = new Map<
+  number,
+  { resolve: (key: string) => void; reject: (e: Error) => void }
+>();
+let secretId = 0;
+const engine = new Engine(
+  process.env.APPRENTICE_DATA!,
+  (provider) =>
+    new Promise((resolve, reject) => {
+      const id = ++secretId;
+      const timer = setTimeout(() => {
+        secrets.delete(id);
+        reject(new Error("Secure credential request timed out"));
+      }, 10000);
+      secrets.set(id, {
+        resolve: (key) => {
+          clearTimeout(timer);
+          resolve(key);
+        },
+        reject: (e) => {
+          clearTimeout(timer);
+          reject(e);
+        },
+      });
+      parent.postMessage({ secretRequest: id, provider });
+    }),
+);
 let server: Awaited<ReturnType<typeof serve>> | undefined;
 const send = (value: unknown) =>
   parent ? parent.postMessage(value) : process.send?.(value);
 engine.on("event", (event) => send({ event }));
 engine.on("updated", () => send({ refresh: true }));
 async function receive(message: any) {
+  if (message.secretReply) {
+    const pending = secrets.get(message.secretReply);
+    secrets.delete(message.secretReply);
+    if (message.error) pending?.reject(new Error(message.error));
+    else pending?.resolve(message.key);
+    return;
+  }
   const { id, command } = message;
   try {
     if (command?.type === "shutdown") {

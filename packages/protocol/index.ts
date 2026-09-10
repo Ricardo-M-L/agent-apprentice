@@ -6,14 +6,26 @@ export const ProviderSchema = z
   .object({
     id: Identifier,
     name: z.string().min(1).max(100),
-    kind: z.enum(["demo", "chat", "responses", "remote-teacher", "metis"]),
+    kind: z.enum([
+      "demo",
+      "chat",
+      "responses",
+      "anthropic",
+      "remote-teacher",
+      "metis",
+    ]),
     model: z.string().min(1).max(150),
     baseUrl: z.string().url().max(1000).optional(),
     keyEnv: EnvName.optional(),
+    credentialRef: Identifier.optional(),
     priceInput: z.number().nonnegative().optional(),
     priceOutput: z.number().nonnegative().optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (p) => !(p.keyEnv && p.credentialRef),
+    "Choose one authentication source",
+  );
 export type Provider = z.infer<typeof ProviderSchema>;
 export const TeacherSchema = z
   .object({

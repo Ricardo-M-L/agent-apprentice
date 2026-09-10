@@ -10,3 +10,5 @@ playwright-report/
 .DS_Store
 coverage/
 *.log
+credentials.enc.json
+credentials.enc.json.*.tmp

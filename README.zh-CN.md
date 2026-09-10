@@ -40,8 +40,11 @@ node dist/cli.cjs doctor
 
 ## 真实教学
 
-1. 在启动应用的终端显式设置模型 Key 环境变量；应用不读取现存 Codex、Claude 或 Metis 登录文件。
-2. 在 My agents 中配置学生和老师，选择 Chat Completions 或 Responses，输入模型、Base URL 和密钥的**环境变量名**。
+1. 在“我的 Agent”中添加模型，选择 OpenAI Chat Completions、Responses 或 **Anthropic Messages**。
+2. 输入模型和 Base URL，默认可直接粘贴 API Key 并加密保存；也可选择环境变量方式，填写 `OPENAI_API_KEY` 等变量名（不是密钥本身），并在启动应用前设置它。Anthropic 地址支持 `https://api.anthropic.com` 或带 `/v1` 的兼容地址，使用原生 `x-api-key` 鉴权。远端老师通过独立的“连接远端老师”入口配置，不是模型协议。
+
+密钥文件位于应用实际数据目录下的 `credentials.enc.json`，连接弹窗显示完整路径。macOS 使用钥匙串支持的 Electron `safeStorage` 加密，文件权限 0600；系统安全存储不可用时拒绝保存，不降级成明文。数据库仅保存随机引用，不保存 Key。可编辑替换或删除已存密钥；CLI 保留环境变量方式，不能解锁桌面密钥。应用不会修改 `.zshrc`、全局环境变量、Metis/Codex/Claude 配置，也不读取其登录文件。
+
 3. 创建老师档案，只使用有权共享的材料。
 4. 启动 Docker，执行 `docker pull node:24-alpine`。
 5. 在学习页选择真实 Docker 执行，确认会发送的教学材料后开始。
@@ -49,6 +52,22 @@ node dist/cli.cjs doctor
 真实代码仅在受限容器运行：非 root、默认无网络、资源和时间限制、无 HOME/密钥/Docker socket 挂载。Docker 不可用时直接失败，绝不静默改为宿主机执行。使用 Colima 时应显式传入对应 `DOCKER_HOST`，不修改全局 Docker context。
 
 源码和测试输入通过标准输入传入容器，TypeScript 在容器内部处理；不挂载任何宿主机目录，不依赖 Docker VM 的目录共享设置。
+
+### 用 Colima 替代 Docker Desktop
+
+不必安装 Docker Desktop。Colima 的 **Docker runtime** 可以提供所需引擎，但仍需要 `docker` 命令。Colima 的 containerd runtime、Podman 和宿主机直接执行，目前都不是经过验证的后端。
+
+先用 `colima list`、`docker context ls` 查看正在运行的实例及其 context。下面以默认实例的 `colima` context 为例；有命名实例时换成对应名称。不会切换全局 Docker context：
+
+```sh
+# 仅在没有合适的运行实例、需要新建默认实例时使用：
+# colima start --runtime docker
+COLIMA_HOST="$(docker context inspect colima --format '{{.Endpoints.docker.Host}}')"
+DOCKER_HOST="$COLIMA_HOST" docker pull node:24-alpine
+DOCKER_HOST="$COLIMA_HOST" pnpm start
+```
+
+重启前先退出已运行的应用。使用本地构建的 macOS arm64 安装包时，将 `pnpm start` 换成 `"./release/mac-arm64/Agent Apprentice.app/Contents/MacOS/Agent Apprentice"`。启动后在“设置 → 刷新环境”中确认；从 Finder 打开不一定继承终端的 `DOCKER_HOST`。离线模拟完全不需要 Docker 或 Colima。
 
 ## 远端老师权限
 

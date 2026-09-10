@@ -16,7 +16,7 @@ An original, local-first **TypeScript + Electron + React** desktop classroom, wi
 
 - Five desktop views: learning room, agents, teachers, capability archive, four-arm experiment comparison.
 - Persistent diagnosis → teaching → practice → independent exam lifecycle, cancellation, call/token reservations and deadlines.
-- OpenAI Chat Completions and Responses adapters. Keys come only from explicitly named environment variables.
+- OpenAI Chat Completions, Responses and native Anthropic Messages adapters. Desktop API keys use OS-backed encrypted storage, with explicit environment-variable mode retained for desktop and CLI.
 - Authenticated REST/SSE coordinator and opt-in remote teacher protocol.
 - Docker-only real TypeScript execution: non-root, no network, read-only source, resource limits, no host credential mounts.
 - Capability provenance, conditional verification, checksum, import/export, disable/delete and independent retest.
@@ -53,8 +53,11 @@ CLI data defaults to `~/.agent-apprentice`; desktop data defaults to Electron's 
 
 ## Use real models
 
-1. Launch from a terminal that has the model key in an explicitly chosen environment variable. Never paste keys into repository files or provider names.
-2. In **My agents**, add student and teacher providers. Enter the variable **name**, model ID, and base URL (typically ending in `/v1`). Optional prices are USD per million tokens; missing prices remain **Unknown**.
+1. In **My agents**, select OpenAI Chat Completions, Responses or Anthropic Messages. Use **Connect remote teacher** separately for this project's `/v1/teach` protocol.
+2. Enter model ID and base URL; Anthropic supports a root URL or `/v1` and uses native `x-api-key` authentication. Paste the key in **API key (secure storage)**, or select **Environment variable name** and supply a name whose value was set before launch. Optional prices are USD per million tokens; missing prices remain **Unknown**. Saved keys can be replaced in **Edit connection** or removed independently.
+
+The connection dialog displays the actual `userData/credentials.enc.json` path. Keys are encrypted with Electron `safeStorage` (macOS Keychain-backed), written atomically with mode 0600, and bound to the provider ID, protocol and endpoint. Unavailable system encryption fails closed; no plaintext fallback. No shell files, global environment or other applications' configuration are changed. CLI saved-key references require the desktop coordinator; standalone CLI retains environment-variable mode.
+
 3. In **Teachers**, create a teacher profile linked to the teacher provider. Review authorized materials and license.
 4. Start Docker and explicitly prepare the exercise image:
 
@@ -68,6 +71,22 @@ docker pull node:24-alpine
 The current original course is a narrow TypeScript tags-validation library. See [the course](examples/maintainer-course/README.md) and [evaluation limits](docs/EVALUATION.md).
 
 If using Colima or another Docker context, explicitly set the corresponding `DOCKER_HOST` when launching the application. Source and test inputs are streamed over stdin and TypeScript is processed inside the container. No host directory is mounted, and no host-execution fallback exists.
+
+### Colima instead of Docker Desktop
+
+Docker Desktop is not required. Colima with the **Docker runtime** supplies the engine; the `docker` CLI is still required. Colima's containerd runtime, Podman and native host execution are not currently validated backends.
+
+Run `colima list` and `docker context ls` to find your running profile and context. The example below uses `colima` (the default profile); replace it with the context for your profile. These commands do not change the global Docker context:
+
+```sh
+# For a new default profile only, if no suitable Docker profile is running:
+# colima start --runtime docker
+COLIMA_HOST="$(docker context inspect colima --format '{{.Endpoints.docker.Host}}')"
+DOCKER_HOST="$COLIMA_HOST" docker pull node:24-alpine
+DOCKER_HOST="$COLIMA_HOST" pnpm start
+```
+
+Quit an already running desktop instance before relaunching. For a locally built macOS arm64 package, replace `pnpm start` with `"./release/mac-arm64/Agent Apprentice.app/Contents/MacOS/Agent Apprentice"`. Check **Settings → Refresh environment**; a Finder launch does not necessarily inherit a terminal's `DOCKER_HOST`. Offline simulation needs neither Colima nor Docker.
 
 ## Remote teaching
 
